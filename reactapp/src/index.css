@@ -1,0 +1,14 @@
+
+.col-12{
+  /* border-style: solid ; */
+  margin: 100px!important;
+  font-family: calibri;
+  font-size: 16pt;
+}
+label{
+  font-size: 18pt;
+}
+#insidebox,#outsidebox{
+  display:none;
+  font-size: 20pt;;
+}
