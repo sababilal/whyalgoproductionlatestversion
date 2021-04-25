@@ -1,63 +1,72 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Axios from "axios";
-import AppContext from "./AppContext";
-import { useParams, useHistory } from "react-router-dom";
-import Option from "./Option";
+import { useHistory } from "react-router-dom";
 
 function App() {
-  const [choosenOption, chooseOption] = useState("");
-  const AppContextObject = {
-    choosenOption: choosenOption,
-    chooseOption,
-  };
+  const backButton = useRef(null);
   let history = useHistory();
-  const { currentqno } = useParams();
-
-  let optionindex = 0;
-  const [qno, setQno] = useState();
+  var [qIndex, setQindex] = useState();
   const [qtext, setQtext] = useState();
   const [option, setOptions] = useState([]);
+  const [choosenOption, chooseOption] = useState("");
+  console.log("qIndex is " + qIndex);
 
   useEffect(() => {
-    Axios.post("http://localhost:3003/question", { qno: currentqno })
-      .then((response) => {
-        let inside = document.getElementById("insidebox");
-        let outside = document.getElementById("outsidebox");
+    Axios.post("https://cors-anywhere.herokuapp.com(whyquestionnaire.herokuapp.com/getmessage)")
+    .then((response) => {
+  alert(response.data);
+    }) .catch((error) => {
+      console.log(error);
+    });
 
-        if (currentqno >= 27) inside.style.display = "block";
-        else if (currentqno < 27 && currentqno > 3)
-          outside.style.display = "block";
-        setQno(response.data[0].id);
-        setQtext(response.data[0].question);
-        setOptions([...response.data[1]]);
+    Axios.post("https://whyquestionnaire.herokuapp.com/whyquestion")
+      .then((response) => {
+        if (response.data.whyresult) {
+          let resultPath = "/whyresult/" + response.data.whyresult;
+          history.push({ pathname: resultPath });
+        } else {
+          setQindex(response.data[2]);
+          setQtext(response.data[0].question);
+          setOptions([...response.data[1]]);
+        }
+        if (qIndex === 1) {
+          backButton.current.style.display = "none";
+        } else {
+          backButton.current.style.display = "inline-block";
+        }
       })
       .catch((error) => {
         console.log(error);
       });
-  }, [currentqno]);
+  }, [qIndex]);
+
+  // let msgbox = document.getElementById("msgbox");
+  // msgbox.style.display = "none";
+  // if (qid >= 27) {
+  //   alertBox.current.innerText = " You are Inside the box";
+  //   alertBox.current.style.display = "block";
+  // } else if (qid < 27 && qid > 3) {
+  //   alertBox.current.innerText = " You are Outside the box";
+  //   alertBox.current.style.display = "block";
+  // } else {
+  //   alertBox.current.style.display = "none";
+  // }
+  // let backbtn = document.getElementById("backbtn");
+  // backbtn.style.display = "flex";
 
   const nextQ = () => {
     document.getElementById("qform").reset();
-
     if (choosenOption.length == 0) {
       alert("Choose an option");
     } else {
-      Axios.post("http://localhost:3003/saveanswer", {
-        qno: currentqno,
+      Axios.post("https://whyquestionnaire.herokuapp.com/saveanswer", {
         lockedanswer: choosenOption,
       })
         .then((response) => {
-          setQno("");
+          setQindex("");
           chooseOption("");
-          setQtext("");
-          setOptions([]);
-          if (response.data.nextQ) {
-            let nextQ = response.data.nextQ;
-            let nextRoute = "/default/" + nextQ;
-            history.push({ pathname: nextRoute });
-          } else if (response.data.whyresult) {
-            let resultPath = "/whyresult/" + response.data.whyresult;
-            history.push({ pathname: resultPath });
+          if (response.data.saved) {
+            history.push({ pathname: "/whyquestionnaire" });
           }
         })
         .catch((error) => {
@@ -66,46 +75,75 @@ function App() {
     }
   };
 
-  const optionlist = (val) => {
-    return (
-      <Option id={val.id} option={val.option} optionindex={++optionindex} />
-    );
+  const goBack = () => {
+    document.getElementById("qform").reset();
+
+    Axios.post("https://whyquestionnaire.herokuapp.com/deletelastanswer")
+      .then((response) => {
+        if (response.data.deleted) {
+          setQindex("");
+          chooseOption("");
+          history.push({ pathname: "/whyquestionnaire" });
+        }
+      })
+      .catch((error) => {
+        console.log(error);
+      });
   };
 
   return (
     <>
-      <AppContext.Provider value={AppContextObject}>
-        <div className="row outblock">
-          <div className="text-center alert alert-info mx-auto" id="insidebox">
-            You are Inside the box
-          </div>
-          <div className="text-center alert alert-info mx-auto" id="outsidebox">
-            You are Outside the box
-          </div>
-
-          <br />
-          <div className="col-xl-4 col-lg-4 col-md-8 col-sm-10 col-12 mx-auto">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-              }}
-              id="qform"
+      <div className="row outblock">
+        <div className="text-center alert alert-info mx-auto" id="msgbox"></div>
+        <br />
+        <div className="col-xl-4 col-lg-4 col-md-8 col-sm-10 col-12 mx-auto">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+            }}
+            id="qform"
+            noValidate
+          >
+            <h3>
+              <span>Q{qIndex} / </span>
+              {qtext}
+            </h3>
+            <br />
+            {option.map((val, idx) => {
+              return (
+                <>
+                  <span>{idx + 1}&nbsp;&nbsp;</span>
+                  <input
+                    type="radio"
+                    required
+                    value={val.id}
+                    name="option"
+                    onClick={(e) => {
+                      chooseOption(e.target.value);
+                    }}
+                  />
+                  <label>&nbsp;{val.option}</label>
+                  <br />
+                </>
+              );
+            })}
+            <br />
+            <br />
+            <button
+              id="backbtn"
+              ref={backButton}
+              className="btn  btn-warning me-3"
+              onClick={goBack}
             >
-              <h3>
-                <span>Q{qno} </span>
-                {qtext}
-              </h3>
-              <br />
-              {option.map(optionlist)}
-              <br />
-              <br />
-              <button className="btn btn-success" onClick={nextQ}>
-                Save and Next
-              </button>
-            </form>
-          </div>
+              Go Back
+            </button>
+
+            <button className="btn  btn-success" onClick={nextQ}>
+              Save and Next
+            </button>
+          </form>
         </div>
-      </AppContext.Provider>
+      </div>
     </>
   );
 }

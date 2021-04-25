@@ -2,7 +2,6 @@ const express = require("express");
 const app = express();
 const { Op } = require("sequelize");
 const cors = require("cors");
-const User = require("./model/user");
 const Question = require("./model/question");
 const Option = require("./model/option");
 const Discovery = require("./model/discovery");
@@ -11,12 +10,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(
   cors({
-    origin: true,
+    origin: ['https://60843d8e4935d28e64d88b7b--romantic-nightingale-2df791.netlify.app/whyquestionnaire','http://localhost:3000'],
     credentials: true,
     preflightContinue: false,
     optionsSuccessStatus: 204,
   })
 );
+app.get("/getmessage",(req,res)=>{
+    fetchQuestion(1, res, 1);
+    console.log("fetching.");
+
+})
 
 const findQuestion = async (qno) => {
   const question = await Question.findAll({
@@ -76,7 +80,6 @@ const checkDiscoveryAnswer = async (questionid, discoveryid) => {
   );
   return prevDisAns[0].option_id;
 };
-
 const checkLastFiveDiscoveryAnswers = async (qids, discoveryid) => {
   const prevDisAns = await Discoveryanswer.findAll(
     {
@@ -85,11 +88,21 @@ const checkLastFiveDiscoveryAnswers = async (qids, discoveryid) => {
         required: true,
         where: {
           [Op.or]: [
-            { question_id: qids[0] },
-            { question_id: qids[1] },
-            { question_id: qids[2] },
-            { question_id: qids[3] },
-            { question_id: qids[4] },
+            {
+              question_id: qids[0],
+            },
+            {
+              question_id: qids[1],
+            },
+            {
+              question_id: qids[2],
+            },
+            {
+              question_id: qids[3],
+            },
+            {
+              question_id: qids[4],
+            },
           ],
         },
       },
@@ -99,34 +112,103 @@ const checkLastFiveDiscoveryAnswers = async (qids, discoveryid) => {
         discovery_id: discoveryid,
       },
     },
-    {
-      raw: true,
-    }
+    { raw: true }
   );
-  return prevDisAns;
-};
-const findNextQ=(qno,discoveryid,lockedanswer)=>{
+  var prevanswers = prevDisAns.map(getOptions);
 
-  switch (parseInt(qno)) {
+  function getOptions(val) {
+    return val.dataValues.option_id;
+  }
+  return prevanswers;
+};
+const findLastDiscoveryAnswer = async (discoveryid) => {
+  const lastDiscoveryAnswer = await Discoveryanswer.findAndCountAll({
+    include: {
+      model: Option,
+    },
+    where: {
+      discovery_id: discoveryid,
+    },
+    order: [["id", "DESC"]],
+  });
+
+  if (lastDiscoveryAnswer.count > 0)
+    return {
+      lastQuestion:
+        lastDiscoveryAnswer.rows[0].dataValues.option.dataValues.question_id,
+      lastOption: lastDiscoveryAnswer.rows[0].dataValues.option_id,
+      questionsAnswered: lastDiscoveryAnswer.count,
+    };
+  else return null;
+};
+
+const findLastDiscoveryAnswerId = async (discoveryid) => {
+  const lastDiscoveryAnswer = await Discoveryanswer.findAll({
+    where: {
+      discovery_id: discoveryid,
+    },
+    order: [["id", "DESC"]],
+    limit: 1,
+    raw: true,
+  });
+  return lastDiscoveryAnswer[0].id;
+};
+
+const deletediscoveryAnswers = async (discoveryid) => {
+  const deletedEntriesCount = await Discoveryanswer.destroy({
+    where: {
+      discovery_id: discoveryid,
+    },
+  });
+  return deletedEntriesCount;
+};
+
+const deletelastAnswer = async (discoveryanswerid) => {
+  const deletedEntriesCount = await Discoveryanswer.destroy({
+    where: {
+      id: discoveryanswerid,
+    },
+  });
+  return deletedEntriesCount;
+};
+
+const fetchQuestion = (qno, res, questionindex) => {
+  findQuestion(qno)
+    .then((questionrow) => {
+      findOptions(qno)
+        .then((options) => {
+          res.send([questionrow, options, questionindex]);
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+    })
+    .catch((error) => {
+      console.log(error);
+    });
+};
+
+const decideNextQuestion = (
+  lastQuestion,
+  lastOption,
+  questionIndex,
+  discoveryid,
+  res
+) => {
+  switch (parseInt(lastQuestion)) {
     case 1:
-     return({ nextQ: 2 });
+      fetchQuestion(2, res, questionIndex);
       break;
 
     case 2:
-      console.log("case 2 running");
       checkDiscoveryAnswer(1, discoveryid)
         .then((prevanswer) => {
-          if (prevanswer == 1 && lockedanswer == 3) {
-            console.log("first if working");
-           return({ nextQ: 27 });
-          } else if (prevanswer == 2 && lockedanswer == 4) {
-            console.log("second if working");
-
-           return({ nextQ: 4 });
+          if (prevanswer == 1 && lastOption == 3) {
+            fetchQuestion(27, res, questionIndex);
+          } else if (prevanswer == 2 && lastOption == 4) {
+            fetchQuestion(4, res, questionIndex);
           } else {
-            console.log("third if working");
-
-           return({ nextQ: 3 });
+            fetchQuestion(3, res, questionIndex);
           }
         })
         .catch((error) => {
@@ -135,37 +217,33 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
       break;
 
     case 3:
-      if (lockedanswer == 6)return({ nextQ: 27 });
-      else if (lockedanswer == 5)return({ nextQ: 4 });
+      if (lastOption == 6) fetchQuestion(27, res, questionIndex);
+      else if (lastOption == 5) fetchQuestion(4, res, questionIndex);
       break;
 
     case 4:
-     return({ nextQ: 5 });
+      fetchQuestion(5, res, questionIndex);
       break;
 
     case 5:
-     return({ nextQ: 6 });
+      fetchQuestion(6, res, questionIndex);
       break;
 
     case 6:
-     return({ nextQ: 7 });
+      fetchQuestion(7, res, questionIndex);
       break;
 
     case 7:
-     return({ nextQ: 8 });
+      fetchQuestion(8, res, questionIndex);
       break;
 
     case 8:
-      var qids = [4, 5, 6, 7, 8];
-      var cmCount = 0;
-      var mbCount = 0;
-      var csCount = 0;
-      checkLastFiveDiscoveryAnswers(qids, discoveryid)
-        .then((prevanswers) => {
-          var prevoption = prevanswers.map(myFunction);
-          function myFunction(val) {
-            return val.dataValues.option_id;
-          }
+      var lastFiveQuestionIds = [4, 5, 6, 7, 8];
+      var challengeMasteryCount = 0;
+      var makessenseBetterywayCount = 0;
+      var contributeSimplifyCount = 0;
+      checkLastFiveDiscoveryAnswers(lastFiveQuestionIds, discoveryid)
+        .then((prevoption) => {
           for (var i = 0; i < prevoption.length; i++) {
             if (
               prevoption[i] == 7 ||
@@ -174,7 +252,7 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
               prevoption[i] == 16 ||
               prevoption[i] == 19
             ) {
-              cmCount++;
+              challengeMasteryCount++;
             } else if (
               prevoption[i] == 8 ||
               prevoption[i] == 11 ||
@@ -182,7 +260,7 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
               prevoption[i] == 17 ||
               prevoption[i] == 20
             ) {
-              mbCount++;
+              makessenseBetterywayCount++;
             } else if (
               prevoption[i] == 9 ||
               prevoption[i] == 12 ||
@@ -190,31 +268,40 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
               prevoption[i] == 18 ||
               prevoption[i] == 21
             ) {
-              csCount++;
+              contributeSimplifyCount++;
             }
           }
 
-          if (cmCount > mbCount && cmCount > csCount) {
-           return({ nextQ: 18 });
-          } else if (mbCount > cmCount && mbCount > csCount) {
-           return({ nextQ: 21 });
-          } else if (csCount > cmCount && csCount > mbCount) {
-           return({ nextQ: 24 });
+          if (
+            challengeMasteryCount > makessenseBetterywayCount &&
+            challengeMasteryCount > contributeSimplifyCount
+          ) {
+            fetchQuestion(18, res, questionIndex);
+          } else if (
+            makessenseBetterywayCount > challengeMasteryCount &&
+            makessenseBetterywayCount > contributeSimplifyCount
+          ) {
+            fetchQuestion(21, res, questionIndex);
+          } else if (
+            contributeSimplifyCount > challengeMasteryCount &&
+            contributeSimplifyCount > makessenseBetterywayCount
+          ) {
+            fetchQuestion(24, res, questionIndex);
           }
 
           // Challenge mastery Makes sense Better way   tie
-          else if (cmCount == mbCount) {
-           return({ nextQ: 9 });
+          else if (challengeMasteryCount == makessenseBetterywayCount) {
+            fetchQuestion(9, res, questionIndex);
           }
 
           // Challenge mastery contribute simplify   tie
-          else if (cmCount == csCount) {
-           return({ nextQ: 15 });
+          else if (challengeMasteryCount == contributeSimplifyCount) {
+            fetchQuestion(15, res, questionIndex);
           }
 
-          //  Makes sense Better way contribute simplify  tie
-          else if (mbCount == csCount) {
-           return({ nextQ: 12 });
+          // Makes sense Better way contribute simplify  tie
+          else if (makessenseBetterywayCount == contributeSimplifyCount) {
+            fetchQuestion(12, res, questionIndex);
           }
         })
         .catch((error) => {
@@ -223,18 +310,18 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
       break;
 
     case 9:
-     return({ nextQ: 10 });
+      fetchQuestion(10, res, questionIndex);
       break;
 
     case 10:
       checkDiscoveryAnswer(9, discoveryid)
         .then((prevanswer) => {
-          if (prevanswer == 40 && lockedanswer == 43) {
-           return({ nextQ: 18 });
-          } else if (prevanswer == 41 && lockedanswer == 44) {
-           return({ nextQ: 21 });
+          if (prevanswer == 40 && lastOption == 43) {
+            fetchQuestion(18, res, questionIndex);
+          } else if (prevanswer == 41 && lastOption == 44) {
+            fetchQuestion(21, res, questionIndex);
           } else {
-           return({ nextQ: 11 });
+            fetchQuestion(11, res, questionIndex);
           }
         })
         .catch((error) => {
@@ -243,23 +330,23 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
       break;
 
     case 11:
-      if (lockedanswer == 46)return({ nextQ: 18 });
-      else if (lockedanswer == 47)return({ nextQ: 21 });
+      if (lastOption == 46) fetchQuestion(18, res, questionIndex);
+      else if (lastOption == 47) fetchQuestion(21, res, questionIndex);
       break;
 
     case 12:
-     return({ nextQ: 13 });
+      fetchQuestion(13, res, questionIndex);
       break;
 
     case 13:
       checkDiscoveryAnswer(12, discoveryid)
         .then((prevanswer) => {
-          if (prevanswer == 85 && lockedanswer == 87) {
-           return({ nextQ: 21 });
-          } else if (prevanswer == 86 && lockedanswer == 88) {
-           return({ nextQ: 24 });
+          if (prevanswer == 85 && lastOption == 87) {
+            fetchQuestion(21, res, questionIndex);
+          } else if (prevanswer == 86 && lastOption == 88) {
+            fetchQuestion(24, res, questionIndex);
           } else {
-           return({ nextQ: 14 });
+            fetchQuestion(14, res, questionIndex);
           }
         })
         .catch((error) => {
@@ -268,23 +355,23 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
       break;
 
     case 14:
-      if (lockedanswer == 89)return({ nextQ: 21 });
-      else if (lockedanswer == 90)return({ nextQ: 24 });
+      if (lastOption == 89) fetchQuestion(21, res, questionIndex);
+      else if (lastOption == 90) fetchQuestion(24, res, questionIndex);
       break;
 
     case 15:
-     return({ nextQ: 16 });
+      fetchQuestion(16, res, questionIndex);
       break;
 
     case 16:
       checkDiscoveryAnswer(15, discoveryid)
         .then((prevanswer) => {
-          if (prevanswer == 91 && lockedanswer == 93) {
-           return({ nextQ: 18 });
-          } else if (prevanswer == 92 && lockedanswer == 94) {
-           return({ nextQ: 24 });
+          if (prevanswer == 91 && lastOption == 93) {
+            fetchQuestion(18, res, questionIndex);
+          } else if (prevanswer == 92 && lastOption == 94) {
+            fetchQuestion(24, res, questionIndex);
           } else {
-           return({ nextQ: 17 });
+            fetchQuestion(17, res, questionIndex);
           }
         })
         .catch((error) => {
@@ -293,23 +380,23 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
       break;
 
     case 17:
-      if (lockedanswer == 95)return({ nextQ: 18 });
-      else if (lockedanswer == 96)return({ nextQ: 24 });
+      if (lastOption == 95) fetchQuestion(18, res, questionIndex);
+      else if (lastOption == 96) fetchQuestion(24, res, questionIndex);
       break;
 
     case 18:
-     return({ nextQ: 19 });
+      fetchQuestion(19, res, questionIndex);
       break;
 
     case 19:
       checkDiscoveryAnswer(18, discoveryid)
         .then((prevanswer) => {
-          if (prevanswer == 55 && lockedanswer == 57) {
-           return({ whyresult: "CHALLENGE" });
-          } else if (prevanswer == 56 && lockedanswer == 58) {
-           return({ whyresult: "MASTERY" });
+          if (prevanswer == 55 && lastOption == 57) {
+            res.send({ whyresult: "CHALLENGE" });
+          } else if (prevanswer == 56 && lastOption == 58) {
+            res.send({ whyresult: "MASTERY" });
           } else {
-           return({ nextQ: 20 });
+            fetchQuestion(20, res, questionIndex);
           }
         })
         .catch((error) => {
@@ -318,23 +405,23 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
       break;
 
     case 20:
-      if (lockedanswer == 59)return({ whyresult: "CHALLENGE" });
-      else if (lockedanswer == 60)return({ whyresult: "MASTERY" });
+      if (lastOption == 59) res.send({ whyresult: "CHALLENGE" });
+      else if (lastOption == 60) res.send({ whyresult: "MASTERY" });
       break;
 
     case 21:
-     return({ nextQ: 22 });
+      fetchQuestion(22, res, questionIndex);
       break;
 
     case 22:
       checkDiscoveryAnswer(21, discoveryid)
         .then((prevanswer) => {
-          if (prevanswer == 61 && lockedanswer == 63) {
-           return({ whyresult: "MAKES SENSE" });
-          } else if (prevanswer == 62 && lockedanswer == 64) {
-           return({ whyresult: "BETTER WAY" });
+          if (prevanswer == 61 && lastOption == 63) {
+            res.send({ whyresult: "MAKES SENSE" });
+          } else if (prevanswer == 62 && lastOption == 64) {
+            res.send({ whyresult: "BETTER WAY" });
           } else {
-           return({ nextQ: 23 });
+            fetchQuestion(23, res, questionIndex);
           }
         })
         .catch((error) => {
@@ -343,25 +430,23 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
       break;
 
     case 23:
-      if (lockedanswer == 65)return({ whyresult: "MAKES SENSE" });
-      else if (lockedanswer == 66)
-       return({ whyresult: "BETTER WAY" });
-
+      if (lastOption == 65) res.send({ whyresult: "MAKES SENSE" });
+      else if (lastOption == 66) res.send({ whyresult: "BETTER WAY" });
       break;
 
     case 24:
-     return({ nextQ: 25 });
+      fetchQuestion(25, res, questionIndex);
       break;
 
     case 25:
       checkDiscoveryAnswer(24, discoveryid)
         .then((prevanswer) => {
-          if (prevanswer == 67 && lockedanswer == 69) {
-           return({ whyresult: "CONTRIBUTE" });
-          } else if (prevanswer == 68 && lockedanswer == 70) {
-           return({ whyresult: "SIMPLIFY" });
+          if (prevanswer == 67 && lastOption == 69) {
+            res.send({ whyresult: "CONTRIBUTE" });
+          } else if (prevanswer == 68 && lastOption == 70) {
+            res.send({ whyresult: "SIMPLIFY" });
           } else {
-           return({ nextQ: 26 });
+            fetchQuestion(26, res, questionIndex);
           }
         })
         .catch((error) => {
@@ -370,38 +455,35 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
       break;
 
     case 26:
-      if (lockedanswer == 71)return({ whyresult: "CONTRIBUTE" });
-      else if (lockedanswer == 72)return({ whyresult: "SIMPLIFY" });
+      if (lastOption == 71) res.send({ whyresult: "CONTRIBUTE" });
+      else if (lastOption == 72) res.send({ whyresult: "SIMPLIFY" });
       break;
 
     case 27:
-     return({ nextQ: 28 });
+      fetchQuestion(28, res, questionIndex);
       break;
-      np;
+
     case 28:
-     return({ nextQ: 29 });
+      fetchQuestion(29, res, questionIndex);
       break;
 
     case 29:
-     return({ nextQ: 30 });
+      fetchQuestion(30, res, questionIndex);
       break;
 
     case 30:
-     return({ nextQ: 31 });
+      fetchQuestion(31, res, questionIndex);
       break;
 
     case 31:
-      var qids = [27, 28, 29, 30, 31];
+      var lastFiveQuestionIds = [27, 28, 29, 30, 31];
       var trustCount = 0;
       var rightwayCount = 0;
       var clarifyCount = 0;
       var contributeCount = 0;
-      checkLastFiveDiscoveryAnswers(qids, discoveryid)
-        .then((prevanswers) => {
-          prevoption = prevanswers.map(myFunction);
-          function myFunction(val) {
-            return val.dataValues.option_id;
-          }
+
+      checkLastFiveDiscoveryAnswers(lastFiveQuestionIds, discoveryid)
+        .then((prevoption) => {
           for (i = 0; i < prevoption.length; i++) {
             if (
               prevoption[i] == 73 ||
@@ -438,17 +520,17 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
             }
           }
           if (trustCount == 2 && clarifyCount == 2)
-           return({ nextQ: 32 });
+            fetchQuestion(32, res, questionIndex);
           else if (trustCount == 2 && contributeCount == 2)
-           return({ nextQ: 33 });
+            fetchQuestion(33, res, questionIndex);
           else if (rightwayCount == 2 && clarifyCount == 2)
-           return({ nextQ: 34 });
+            fetchQuestion(34, res, questionIndex);
           else if (rightwayCount == 2 && contributeCount == 2)
-           return({ nextQ: 35 });
+            fetchQuestion(35, res, questionIndex);
           else if (trustCount + rightwayCount >= 3)
-           return({ nextQ: 36 });
+            fetchQuestion(36, res, questionIndex);
           else if (clarifyCount + contributeCount >= 3)
-           return({ nextQ: 39 });
+            fetchQuestion(39, res, questionIndex);
         })
         .catch((error) => {
           console.log(error);
@@ -456,38 +538,38 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
       break;
 
     case 32:
-      if (lockedanswer == 105)return({ nextQ: 36 });
-      else if (lockedanswer == 107)return({ nextQ: 39 });
+      if (lastOption == 105) fetchQuestion(36, res, questionIndex);
+      else if (lastOption == 107) fetchQuestion(39, res, questionIndex);
       break;
 
     case 33:
-      if (lockedanswer == 109)return({ nextQ: 36 });
-      else if (lockedanswer == 112)return({ nextQ: 39 });
+      if (lastOption == 109) fetchQuestion(36, res, questionIndex);
+      else if (lastOption == 112) fetchQuestion(39, res, questionIndex);
       break;
 
     case 34:
-      if (lockedanswer == 114)return({ nextQ: 36 });
-      else if (lockedanswer == 115)return({ nextQ: 39 });
+      if (lastOption == 114) fetchQuestion(36, res, questionIndex);
+      else if (lastOption == 115) fetchQuestion(39, res, questionIndex);
       break;
 
     case 35:
-      if (lockedanswer == 118)return({ nextQ: 36 });
-      else if (lockedanswer == 117)return({ nextQ: 39 });
+      if (lastOption == 118) fetchQuestion(36, res, questionIndex);
+      else if (lastOption == 117) fetchQuestion(39, res, questionIndex);
       break;
 
     case 36:
-     return({ nextQ: 37 });
+      fetchQuestion(37, res, questionIndex);
       break;
 
     case 37:
       checkDiscoveryAnswer(36, discoveryid)
         .then((prevanswer) => {
-          if (prevanswer == 119 && lockedanswer == 121) {
-           return({ whyresult: "TRUST" });
-          } else if (prevanswer == 120 && lockedanswer == 122) {
-           return({ whyresult: "RIGHT WAY" });
+          if (prevanswer == 119 && lastOption == 121) {
+            res.send({ whyresult: "TRUST" });
+          } else if (prevanswer == 120 && lastOption == 122) {
+            res.send({ whyresult: "RIGHT WAY" });
           } else {
-           return({ nextQ: 38 });
+            fetchQuestion(38, res, questionIndex);
           }
         })
         .catch((error) => {
@@ -496,24 +578,23 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
       break;
 
     case 38:
-      if (lockedanswer == 123)return({ whyresult: "TRUST" });
-      else if (lockedanswer == 124)
-       return({ whyresult: "RIGHT WAY" });
+      if (lastOption == 123) res.send({ whyresult: "TRUST" });
+      else if (lastOption == 124) res.send({ whyresult: "RIGHT WAY" });
       break;
 
     case 39:
-     return({ nextQ: 40 });
+      fetchQuestion(40, res, questionIndex);
       break;
 
     case 40:
       checkDiscoveryAnswer(39, discoveryid)
         .then((prevanswer) => {
-          if (prevanswer == 125 && lockedanswer == 127) {
-           return({ whyresult: "CLARIFY" });
-          } else if (prevanswer == 126 && lockedanswer == 128) {
-           return({ whyresult: "CONTRIBUTE" });
+          if (prevanswer == 125 && lastOption == 127) {
+            res.send({ whyresult: "CLARIFY" });
+          } else if (prevanswer == 126 && lastOption == 128) {
+            res.send({ whyresult: "CONTRIBUTE" });
           } else {
-           return({ nextQ: 41 });
+            fetchQuestion(41, res, questionIndex);
           }
         })
         .catch((error) => {
@@ -522,26 +603,36 @@ const findNextQ=(qno,discoveryid,lockedanswer)=>{
       break;
 
     case 41:
-      if (lockedanswer == 129)return({ whyresult: "CLARIFY" });
-      else if (lockedanswer == 130)
-       return({ whyresult: "CONTRIBUTE" });
+      if (lastOption == 129) res.send({ whyresult: "CLARIFY" });
+      else if (lastOption == 130) res.send({ whyresult: "CONTRIBUTE" });
       break;
 
     default:
-     return("i am in default case");
-      }
+      res.send("i am in default case");
+  }
+};
 
-}
-
-
-app.post("/question", (req, res) => {
-  let qno = req.body.qno;
-
-  findQuestion(qno)
-    .then((questionrow) => {
-      findOptions(qno)
-        .then((options) => {
-          res.send([questionrow, options]);
+app.post("/whyquestion", (req, res) => {
+  let userid = 172;
+  let courseid = 1;
+  findDiscovery(userid, courseid)
+    .then((discoveryid) => {
+      findLastDiscoveryAnswer(discoveryid)
+        .then((lastDiscoveryAnswer) => {
+          if (lastDiscoveryAnswer == null) {
+            fetchQuestion(1, res, 1);
+          } else {
+            let lastQuestion = lastDiscoveryAnswer.lastQuestion;
+            let lastOption = lastDiscoveryAnswer.lastOption;
+            let questionIndex = lastDiscoveryAnswer.questionsAnswered + 1;
+            decideNextQuestion(
+              lastQuestion,
+              lastOption,
+              questionIndex,
+              discoveryid,
+              res
+            );
+          }
         })
         .catch((error) => {
           console.log(error);
@@ -553,7 +644,6 @@ app.post("/question", (req, res) => {
 });
 
 app.post("/saveanswer", (req, res) => {
-  let qno = req.body.qno;
   let lockedanswer = req.body.lockedanswer;
   let userid = 172;
   let courseid = 1;
@@ -561,8 +651,7 @@ app.post("/saveanswer", (req, res) => {
     .then((discoveryid) => {
       saveDiscoveryAnswer(discoveryid, lockedanswer)
         .then((response) => {
-       const responseObject=  findNextQuestion(qno,discoveryid,lockedanswer);
-        console.log(responseObject);
+          res.send({ saved: true });
         })
         .catch((error) => {
           console.log(error);
@@ -573,6 +662,38 @@ app.post("/saveanswer", (req, res) => {
     });
 });
 
-app.listen(3003, () => {
-  console.log("Port 3003 started");
+app.post("/deleteanswers", (req, res) => {
+  let userid = 172;
+  let courseid = 1;
+  findDiscovery(userid, courseid)
+    .then((discoveryid) => {
+      deletediscoveryAnswers(discoveryid).then((deletedEntriesCount) => {
+        res.send({ deleted: true });
+      });
+    })
+    .catch((error) => {
+      console.log(error);
+    });
+});
+
+app.post("/deletelastanswer", (req, res) => {
+  let userid = 172;
+  let courseid = 1;
+  findDiscovery(userid, courseid).then((discoveryid) => {
+    findLastDiscoveryAnswerId(discoveryid)
+      .then((lastDiscoveryAnswerId) => {
+        deletelastAnswer(lastDiscoveryAnswerId).then((deletedEntriesCount) => {
+          res.send({ deleted: true });
+        });
+      })
+      .catch((error) => {
+        console.log(error);
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+  });
+});
+app.listen(process.env.PORT||PORT, () => {
+  console.log("Port at heroku started");
 });
