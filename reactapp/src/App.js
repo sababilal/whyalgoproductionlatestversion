@@ -9,19 +9,13 @@ function App() {
   const [qtext, setQtext] = useState();
   const [option, setOptions] = useState([]);
   const [choosenOption, chooseOption] = useState("");
-  console.log("qIndex is " + qIndex);
 
   useEffect(() => {
-    Axios.post("https://cors-anywhere.herokuapp.com(whyquestionnaire.herokuapp.com/getmessage)")
-    .then((response) => {
-  alert(response.data);
-    }) .catch((error) => {
-      console.log(error);
-    });
-
-    Axios.post("https://whyquestionnaire.herokuapp.com/whyquestion")
+    Axios.get("http://localhost:3003/whyquestion", { withCredentials: true })
       .then((response) => {
-        if (response.data.whyresult) {
+        if (response.data === false) {
+          history.push({ pathname: "/welcome" });
+        } else if (response.data.whyresult) {
           let resultPath = "/whyresult/" + response.data.whyresult;
           history.push({ pathname: resultPath });
         } else {
@@ -40,28 +34,18 @@ function App() {
       });
   }, [qIndex]);
 
-  // let msgbox = document.getElementById("msgbox");
-  // msgbox.style.display = "none";
-  // if (qid >= 27) {
-  //   alertBox.current.innerText = " You are Inside the box";
-  //   alertBox.current.style.display = "block";
-  // } else if (qid < 27 && qid > 3) {
-  //   alertBox.current.innerText = " You are Outside the box";
-  //   alertBox.current.style.display = "block";
-  // } else {
-  //   alertBox.current.style.display = "none";
-  // }
-  // let backbtn = document.getElementById("backbtn");
-  // backbtn.style.display = "flex";
-
   const nextQ = () => {
     document.getElementById("qform").reset();
     if (choosenOption.length == 0) {
       alert("Choose an option");
     } else {
-      Axios.post("https://whyquestionnaire.herokuapp.com/saveanswer", {
-        lockedanswer: choosenOption,
-      })
+      Axios.post(
+        "http://localhost:3003/saveanswer",
+        {
+          lockedanswer: choosenOption,
+        },
+        { withCredentials: true }
+      )
         .then((response) => {
           setQindex("");
           chooseOption("");
@@ -78,7 +62,7 @@ function App() {
   const goBack = () => {
     document.getElementById("qform").reset();
 
-    Axios.post("https://whyquestionnaire.herokuapp.com/deletelastanswer")
+    Axios.get("http://localhost:3003/deletelastanswer", { withCredentials: true })
       .then((response) => {
         if (response.data.deleted) {
           setQindex("");
@@ -90,62 +74,69 @@ function App() {
         console.log(error);
       });
   };
-
-  return (
-    <>
-      <div className="row outblock">
-        <div className="text-center alert alert-info mx-auto" id="msgbox"></div>
-        <br />
-        <div className="col-xl-4 col-lg-4 col-md-8 col-sm-10 col-12 mx-auto">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-            }}
-            id="qform"
-            noValidate
-          >
-            <h3>
-              <span>Q{qIndex} / </span>
-              {qtext}
-            </h3>
+  if (qIndex)
+    return (
+      <>
+        <div className="row outblock">
+          <h2>FIND YOUR WHY</h2>
+          <div className="quesbox col-xl-4 col-lg-4 col-md-8 col-sm-12 col-12">
             <br />
-            {option.map((val, idx) => {
-              return (
-                <>
-                  <span>{idx + 1}&nbsp;&nbsp;</span>
-                  <input
-                    type="radio"
-                    required
-                    value={val.id}
-                    name="option"
-                    onClick={(e) => {
-                      chooseOption(e.target.value);
-                    }}
-                  />
-                  <label>&nbsp;{val.option}</label>
-                  <br />
-                </>
-              );
-            })}
-            <br />
-            <br />
-            <button
-              id="backbtn"
-              ref={backButton}
-              className="btn  btn-warning me-3"
-              onClick={goBack}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+              id="qform"
+              noValidate
             >
-              Go Back
-            </button>
+              <h3 id="qtext">
+                <span id="qtext">Q{qIndex} / </span>
+                {qtext}
+              </h3>
+              <br />
+              {option.map((val, idx) => {
+                return (
+                  <>
+                    <span className="radiobtn">{idx + 1}&nbsp;&nbsp;</span>
+                    <input
+                      type="radio"
+                      required
+                      value={val.id}
+                      name="option"
+                      className="radiobtn"
+                      onClick={(e) => {
+                        chooseOption(e.target.value);
+                      }}
+                    />
+                    <label>&nbsp;{val.option}</label>
+                    <br />
+                  </>
+                );
+              })}
+              <br />
+              <br />
+              <button
+                id="backbtn"
+                ref={backButton}
+                className="btn  btn-warning me-3"
+                onClick={goBack}
+              >
+                Go Back
+              </button>
 
-            <button className="btn  btn-success" onClick={nextQ}>
-              Save and Next
-            </button>
-          </form>
+              <button className="btn  btn-success" onClick={nextQ}>
+                Save and Next
+              </button>
+            </form>
+          </div>
         </div>
-      </div>
-    </>
-  );
+      </>
+    );
+  else
+    return (
+      <>
+        <h1>Loading.....</h1>
+      </>
+    );
 }
 
 export default App;

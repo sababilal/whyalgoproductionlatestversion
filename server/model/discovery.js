@@ -13,8 +13,7 @@ const Discovery = sequelize.define(
     },
     discovery_date: {
       type: Sequelize.DATE,
-      allowNull: false,
-    },
+    }
   },
   {
     tableName: "discovery",

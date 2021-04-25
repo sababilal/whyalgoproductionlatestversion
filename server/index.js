@@ -6,21 +6,41 @@ const Question = require("./model/question");
 const Option = require("./model/option");
 const Discovery = require("./model/discovery");
 const Discoveryanswer = require("./model/discoveryanswer");
+const cookieParser = require('cookie-parser');
+const User = require("./model/user");
+const Course = require("./model/course");
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(
   cors({
-    origin: ['https://60843d8e4935d28e64d88b7b--romantic-nightingale-2df791.netlify.app/whyquestionnaire','http://localhost:3000'],
+    origin: true,
     credentials: true,
     preflightContinue: false,
     optionsSuccessStatus: 204,
   })
 );
-app.get("/getmessage",(req,res)=>{
-    fetchQuestion(1, res, 1);
-    console.log("fetching.");
+app.use(cookieParser());
 
-})
+const createDiscovery = async (userid) => {
+  const discovery = await Discovery.create({
+        user_id:userid,
+        course_id:1
+    });
+  return discovery.id;
+};
+
+
+const addUser = async (name, email) => {
+  const user = await User.create({
+    first_name: name,
+    email: email,
+    mobile: 41526354,
+    active: true,
+  });
+  return user.id;
+};
+
+
 
 const findQuestion = async (qno) => {
   const question = await Question.findAll({
@@ -612,8 +632,10 @@ const decideNextQuestion = (
   }
 };
 
-app.post("/whyquestion", (req, res) => {
-  let userid = 172;
+app.get("/whyquestion", (req, res) => {
+  if(req.cookies.whyuser)
+  {
+  let userid = req.cookies.whyuser;
   let courseid = 1;
   findDiscovery(userid, courseid)
     .then((discoveryid) => {
@@ -641,11 +663,16 @@ app.post("/whyquestion", (req, res) => {
     .catch((error) => {
       console.log(error);
     });
+  }
+  else
+  res.send(false);
 });
 
 app.post("/saveanswer", (req, res) => {
+  console.log(req.cookies.whyuser);
+
   let lockedanswer = req.body.lockedanswer;
-  let userid = 172;
+  let userid = req.cookies.whyuser;
   let courseid = 1;
   findDiscovery(userid, courseid)
     .then((discoveryid) => {
@@ -662,8 +689,9 @@ app.post("/saveanswer", (req, res) => {
     });
 });
 
-app.post("/deleteanswers", (req, res) => {
-  let userid = 172;
+app.get("/deleteanswers", (req, res) => {
+  console.log(req.cookies.whyuser);
+  let userid = req.cookies.whyuser;
   let courseid = 1;
   findDiscovery(userid, courseid)
     .then((discoveryid) => {
@@ -676,8 +704,9 @@ app.post("/deleteanswers", (req, res) => {
     });
 });
 
-app.post("/deletelastanswer", (req, res) => {
-  let userid = 172;
+app.get("/deletelastanswer", (req, res) => {
+  console.log(req.cookies.whyuser);
+  let userid = req.cookies.whyuser;
   let courseid = 1;
   findDiscovery(userid, courseid).then((discoveryid) => {
     findLastDiscoveryAnswerId(discoveryid)
@@ -694,6 +723,29 @@ app.post("/deletelastanswer", (req, res) => {
       });
   });
 });
-app.listen(process.env.PORT||PORT, () => {
-  console.log("Port at heroku started");
+
+app.post("/adduser", (req, res) => {
+  let name = req.body.username;
+  const email = Math.random().toString(25).substring(2, 7).concat("@gmail.com");
+  addUser(name, email)
+    .then((userid) => {
+      createDiscovery(userid).then((response) => {
+        res.cookie("whyuser", userid);
+        res.cookie("whyusername", name);
+        res.send(true);
+      });
+    })
+    .catch((error) => {
+      console.log(error);
+    });
+    
+});
+
+// app.listen(process.env.PORT||PORT, () => {
+//   console.log("Port at heroku started");
+// });
+
+
+app.listen(3003, () => {
+  console.log("Port at 3003 started");
 });

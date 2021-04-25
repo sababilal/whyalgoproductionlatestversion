@@ -24,26 +24,12 @@ const User = sequelize.define(
         notEmpty: {
           args: true,
           msg: "First Name is required",
-        },
-        isAlpha: {
-          args: true,
-          msg: "First Name must only contain letters",
-        },
+        }
       },
     },
     last_name: {
       type: Sequelize.STRING,
-      allowNull: false,
-      validate: {
-        notEmpty: {
-          args: true,
-          msg: "Last Name is required",
-        },
-        isAlpha: {
-          args: true,
-          msg: "Last Name must only contain letters",
-        },
-      },
+     
     },
     email: {
       type: Sequelize.STRING,
