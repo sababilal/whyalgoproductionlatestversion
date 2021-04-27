@@ -6,11 +6,13 @@ const WhyResult = () => {
   const { value } = useParams();
   const history = useHistory();
   const retakeTest = () => {
-  let userid=Cookies.get("whyuser");    
-
-    Axios.post("https://whyquestionnaire.herokuapp.com/deleteanswers",  { userid: userid })
+    //if the user wants to retake the entire test from beginning, get the userid from cookie and send it to /deleteanswers api 
+      let userid=Cookies.get("whyuser");       
+    Axios.post("http://localhost:3003/deleteanswers",  { userid: userid })
       .then((response) => {
         if (response.data.deleted) {
+          //when the response is receieved i.e all the answers of this user have been deleted, send him to /whyquestionnaire where the first question will
+          //load for him
           history.push({ pathname: "/whyquestionnaire" });
         }
       })

@@ -14,7 +14,7 @@
     useEffect(() => {
       //get the userid from the cookie stored and send it to /whyquestion api for getting the appropriate question for this user
       let userid = Cookies.get("whyuser");
-      Axios.post("https://whyquestionnaire.herokuapp.com/whyquestion", {
+      Axios.post("http://localhost:3003/whyquestion", {
         userid: userid,
       })
         .then((response) => {
@@ -53,7 +53,7 @@
         alert("Choose an option");
       } else {
         //send the userid and the option selected to /saveanswer api where the option will be saved
-        Axios.post("https://whyquestionnaire.herokuapp.com/saveanswer", {
+        Axios.post("http://localhost:3003/saveanswer", {
           lockedanswer: choosenOption,
           userid: userid,
         })
@@ -76,7 +76,7 @@
       //if the user wants to go back to the last question get the userid from cookie and send to /deletelastanswer api
       let userid = Cookies.get("whyuser");
       document.getElementById("qform").reset();
-      Axios.post("https://whyquestionnaire.herokuapp.com/deletelastanswer", {
+      Axios.post("http://localhost:3003/deletelastanswer", {
         userid: userid,
       })
         .then((response) => {

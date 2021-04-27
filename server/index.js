@@ -763,11 +763,11 @@ app.post("/adduser", (req, res) => {
     
 });
 
-app.listen(process.env.PORT||PORT, () => {
-  console.log("Port at heroku started");
-});
-
-
-// app.listen(3003, () => {
-//   console.log("Port at 3003 started");
+// app.listen(process.env.PORT||PORT, () => {
+//   console.log("Port at heroku started");
 // });
+
+
+app.listen(3003, () => {
+  console.log("Port at 3003 started");
+});

@@ -23,7 +23,7 @@ const Welcome = () => {
 
       //send a request to api to  add this user into the database
       Axios.post(
-        `https://whyquestionnaire.herokuapp.com/adduser?username=${name}`,
+        `http://localhost:3003/adduser?username=${name}`,
       )
         .then((response) => {
 
