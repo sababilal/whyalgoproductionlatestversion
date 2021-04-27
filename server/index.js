@@ -6,11 +6,11 @@ const Question = require("./model/question");
 const Option = require("./model/option");
 const Discovery = require("./model/discovery");
 const Discoveryanswer = require("./model/discoveryanswer");
-const cookieParser = require('cookie-parser');
 const User = require("./model/user");
 const Course = require("./model/course");
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
 app.use(
   cors({
     origin: true,
@@ -19,12 +19,12 @@ app.use(
     optionsSuccessStatus: 204,
   })
 );
-app.use(cookieParser());
 
-const createDiscovery = async (userid) => {
+const createDiscovery = async (userid,date) => {
   const discovery = await Discovery.create({
         user_id:userid,
-        course_id:1
+        course_id:1,
+        discovery_date:date
     });
   return discovery.id;
 };
@@ -215,6 +215,8 @@ const decideNextQuestion = (
   discoveryid,
   res
 ) => {
+  //the next question will be decided as per the switch case of last question answered by the user and accordingly the appropriate question will be
+  //fetched using the fetchQuestion() function
   switch (parseInt(lastQuestion)) {
     case 1:
       fetchQuestion(2, res, questionIndex);
@@ -632,21 +634,29 @@ const decideNextQuestion = (
   }
 };
 
-app.get("/whyquestion", (req, res) => {
-  if(req.cookies.whyuser)
+app.post("/whyquestion", (req, res) => {
+  //check if userid is receieved from browser cookie value 
+  if(req.body.userid)
   {
-  let userid = req.cookies.whyuser;
+    //if userid is receieved store it 
+  let userid = req.body.userid;
   let courseid = 1;
+  //find the discovery entry for this user
   findDiscovery(userid, courseid)
     .then((discoveryid) => {
+      //find the last discovery answer that this user has given for deciding the next question to be sent
       findLastDiscoveryAnswer(discoveryid)
         .then((lastDiscoveryAnswer) => {
+          //if the user has given no answer, directly fetch the first question
           if (lastDiscoveryAnswer == null) {
             fetchQuestion(1, res, 1);
-          } else {
+          }
+          //if an answer has been given by this user, store the questionid, the option given, and the question index
+          else {
             let lastQuestion = lastDiscoveryAnswer.lastQuestion;
             let lastOption = lastDiscoveryAnswer.lastOption;
             let questionIndex = lastDiscoveryAnswer.questionsAnswered + 1;
+            //using these details decide the next question of this user
             decideNextQuestion(
               lastQuestion,
               lastOption,
@@ -664,20 +674,23 @@ app.get("/whyquestion", (req, res) => {
       console.log(error);
     });
   }
+  //if userid is not receieved from browser cookie send a false response
   else
   res.send(false);
 });
 
 app.post("/saveanswer", (req, res) => {
-  console.log(req.cookies.whyuser);
-
+  //get the option from the frontend
   let lockedanswer = req.body.lockedanswer;
-  let userid = req.cookies.whyuser;
+  let userid = req.body.userid;
   let courseid = 1;
+  //find the discovery entry for this user
   findDiscovery(userid, courseid)
     .then((discoveryid) => {
+      //save the option of this user 
       saveDiscoveryAnswer(discoveryid, lockedanswer)
         .then((response) => {
+          //return a response to frontend
           res.send({ saved: true });
         })
         .catch((error) => {
@@ -689,13 +702,16 @@ app.post("/saveanswer", (req, res) => {
     });
 });
 
-app.get("/deleteanswers", (req, res) => {
-  console.log(req.cookies.whyuser);
-  let userid = req.cookies.whyuser;
+app.post("/deleteanswers", (req, res) => {
+  //get the userid from user 
+  let userid = req.body.userid;
   let courseid = 1;
+  //find the discovery id for this user
   findDiscovery(userid, courseid)
     .then((discoveryid) => {
+        //delete  all the answers of that user from the discoveryanswer table
       deletediscoveryAnswers(discoveryid).then((deletedEntriesCount) => {
+          //send a true response to frontend
         res.send({ deleted: true });
       });
     })
@@ -704,14 +720,18 @@ app.get("/deleteanswers", (req, res) => {
     });
 });
 
-app.get("/deletelastanswer", (req, res) => {
-  console.log(req.cookies.whyuser);
-  let userid = req.cookies.whyuser;
+app.post("/deletelastanswer", (req, res) => {
+  //get the userid from user 
+  let userid = req.body.userid;
   let courseid = 1;
+  //find the discovery id for this user
   findDiscovery(userid, courseid).then((discoveryid) => {
+    //find the last discovery answer id i.e is id of the last answer that he has given
     findLastDiscoveryAnswerId(discoveryid)
       .then((lastDiscoveryAnswerId) => {
+        //delete the last answer from the discoveryanswer table
         deletelastAnswer(lastDiscoveryAnswerId).then((deletedEntriesCount) => {
+          //send a true response to frontend
           res.send({ deleted: true });
         });
       })
@@ -725,14 +745,16 @@ app.get("/deletelastanswer", (req, res) => {
 });
 
 app.post("/adduser", (req, res) => {
-  let name = req.body.username;
+  let name = req.query.username;
   const email = Math.random().toString(25).substring(2, 7).concat("@gmail.com");
+  // create a user in the database using the name that he enters and a randomly generated email
   addUser(name, email)
     .then((userid) => {
-      createDiscovery(userid).then((response) => {
-        res.cookie("whyuser", userid);
-        res.cookie("whyusername", name);
-        res.send(true);
+      //once the user is created, create a discovery with his userid
+      let date=new Date();
+      createDiscovery(userid,date).then((response) => {
+        //send this userid to frontend to allow the browser to create a cookie with this userid
+               res.send({"userid":userid});
       });
     })
     .catch((error) => {
@@ -741,11 +763,11 @@ app.post("/adduser", (req, res) => {
     
 });
 
-// app.listen(process.env.PORT||PORT, () => {
-//   console.log("Port at heroku started");
-// });
-
-
-app.listen(3003, () => {
-  console.log("Port at 3003 started");
+app.listen(process.env.PORT||PORT, () => {
+  console.log("Port at heroku started");
 });
+
+
+// app.listen(3003, () => {
+//   console.log("Port at 3003 started");
+// });
