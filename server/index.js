@@ -82,27 +82,28 @@ const saveDiscoveryAnswer = async (discoveryid, lockedanswer) => {
 };
 
 const checkDiscoveryAnswer = async (questionid, discoveryid) => {
+  console.log("executing check discovery answer");
   const prevDisAns = await Discoveryanswer.findAll(
     {
+      where: {
+                discovery_id: discoveryid
+      }, 
       include: {
         model: Option,
         required: true,
         where: {
           question_id: questionid,
-        },
-      },
-    },
-    {
-      where: {
-        discovery_id: discoveryid,
-      },
-    }
+        }}}
+    
   );
   return prevDisAns[0].option_id;
 };
 const checkLastFiveDiscoveryAnswers = async (qids, discoveryid) => {
   const prevDisAns = await Discoveryanswer.findAll(
     {
+      where: {
+        discovery_id: discoveryid,
+      },
       include: {
         model: Option,
         required: true,
@@ -124,15 +125,7 @@ const checkLastFiveDiscoveryAnswers = async (qids, discoveryid) => {
               question_id: qids[4],
             },
           ],
-        },
-      },
-    },
-    {
-      where: {
-        discovery_id: discoveryid,
-      },
-    },
-    { raw: true }
+        }}}   
   );
   var prevanswers = prevDisAns.map(getOptions);
 
@@ -225,6 +218,7 @@ const decideNextQuestion = (
     case 2:
       checkDiscoveryAnswer(1, discoveryid)
         .then((prevanswer) => {
+          console.log(prevanswer);
           if (prevanswer == 1 && lastOption == 3) {
             fetchQuestion(27, res, questionIndex);
           } else if (prevanswer == 2 && lastOption == 4) {
@@ -762,6 +756,7 @@ app.post("/adduser", (req, res) => {
     });
     
 });
+
 
 // app.listen(process.env.PORT||PORT, () => {
 //   console.log("Port at heroku started");
