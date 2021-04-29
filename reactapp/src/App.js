@@ -52,6 +52,7 @@
       if (choosenOption.length == 0) {
         alert("Choose an option");
       } else {
+        document.getElementById('nextbtn').disabled=true;
         //send the userid and the option selected to /saveanswer api where the option will be saved
         Axios.post("https://whyquestionnaire.herokuapp.com/saveanswer", {
           lockedanswer: choosenOption,
@@ -73,6 +74,7 @@
     };
 
     const goBack = () => {
+      document.getElementById('backbtn').disabled=true;
       //if the user wants to go back to the last question get the userid from cookie and send to /deletelastanswer api
       let userid = Cookies.get("whyuser");
       document.getElementById("qform").reset();
@@ -151,7 +153,7 @@
                   Go Back
                 </button>
 
-                <button className="btn  btn-success" onClick={nextQ}>
+                <button id="nextbtn" className="btn  btn-success" onClick={nextQ}>
                   Save and Next
                 </button>
               </form>
