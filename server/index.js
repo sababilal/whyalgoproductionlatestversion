@@ -81,28 +81,30 @@ const saveDiscoveryAnswer = async (discoveryid, lockedanswer) => {
   return DiscoveryAnswer;
 };
 
+
 const checkDiscoveryAnswer = async (questionid, discoveryid) => {
+  console.log("executing check discovery answer");
   const prevDisAns = await Discoveryanswer.findAll(
     {
+      where: {
+                discovery_id: discoveryid
+      }, 
       include: {
         model: Option,
         required: true,
         where: {
           question_id: questionid,
-        },
-      },
-    },
-    {
-      where: {
-        discovery_id: discoveryid,
-      },
-    }
+        }}}
+    
   );
   return prevDisAns[0].option_id;
 };
 const checkLastFiveDiscoveryAnswers = async (qids, discoveryid) => {
   const prevDisAns = await Discoveryanswer.findAll(
     {
+      where: {
+        discovery_id: discoveryid,
+      },
       include: {
         model: Option,
         required: true,
@@ -124,15 +126,7 @@ const checkLastFiveDiscoveryAnswers = async (qids, discoveryid) => {
               question_id: qids[4],
             },
           ],
-        },
-      },
-    },
-    {
-      where: {
-        discovery_id: discoveryid,
-      },
-    },
-    { raw: true }
+        }}}   
   );
   var prevanswers = prevDisAns.map(getOptions);
 
@@ -141,6 +135,7 @@ const checkLastFiveDiscoveryAnswers = async (qids, discoveryid) => {
   }
   return prevanswers;
 };
+
 const findLastDiscoveryAnswer = async (discoveryid) => {
   const lastDiscoveryAnswer = await Discoveryanswer.findAndCountAll({
     include: {
